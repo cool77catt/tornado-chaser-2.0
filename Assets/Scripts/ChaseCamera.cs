@@ -8,9 +8,11 @@ namespace TornadoChaser
     public class ChaseCamera : MonoBehaviour
     {
         [SerializeField] CarController target;
-        [SerializeField] Vector3 offset = new(0f, 4.5f, -8f);
-        [SerializeField] float lookAhead = 14f;
-        [SerializeField] float lookHeight = 1f;
+        // Kept low and tilted slightly up so the tornado and the storm clouds above it
+        // fill the top of the portrait screen.
+        [SerializeField] Vector3 offset = new(0f, 3.5f, -10f);
+        [SerializeField] float lookAhead = 25f;
+        [SerializeField] float lookHeight = 6f;
         [SerializeField, Tooltip("How tightly the camera tracks the car's side-to-side movement. Higher is tighter.")]
         float lateralFollow = 5f;
         [SerializeField] float minSpeedFov = 60f;

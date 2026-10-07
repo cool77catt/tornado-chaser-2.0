@@ -16,8 +16,8 @@ Combine the "one more run" feel of an infinite runner with the thrill of chasing
 ## Core Gameplay
 
 - **View:** 3D chase camera behind the car. The tornado looms ahead on the road.
-- **Steering:** drag left or right with the thumb for smooth analog steering.
-- **Speed:** the car drives forward on its own. Hold to accelerate and release to slow down. The tornado's speed changes unpredictably, so the player has to keep adjusting.
+- **Controls:** a one-thumb floating joystick, centered wherever the thumb lands. Drag left or right to steer, up to accelerate, and down to brake. Releasing lets the car coast slower.
+- **Speed:** the car drives forward on its own. The tornado's speed changes unpredictably, so the player has to keep adjusting.
 - **Chase zones** (by distance from the tornado):
 
   | Lost | Safe | Close | Danger | Sucked up |
