@@ -21,6 +21,12 @@ namespace TornadoChaser
         [SerializeField, Tooltip("Seconds the car can stay out of range before the tornado is lost.")]
         float lostGracePeriod = 3f;
 
+        public float SuckedUpGap => suckedUpGap;
+        public float DangerGap => dangerGap;
+        public float CloseGap => closeGap;
+        public float SafeGap => safeGap;
+        public float LostGracePeriod => lostGracePeriod;
+
         public float Gap { get; private set; }
         public ChaseZone Zone { get; private set; } = ChaseZone.Safe;
         public float LostTimeRemaining { get; private set; }

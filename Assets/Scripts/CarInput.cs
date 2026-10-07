@@ -18,6 +18,7 @@ namespace TornadoChaser
 
         Vector2 dragOrigin;
         bool dragging;
+        bool ignoringPress;  // the current press started on UI, such as a button
 
         void Update()
         {
@@ -28,19 +29,27 @@ namespace TornadoChaser
             if (pointer != null && pointer.press.isPressed)
             {
                 Vector2 position = pointer.position.ReadValue();
-                if (!dragging)
+                if (!dragging && !ignoringPress)
                 {
-                    dragOrigin = position;
-                    dragging = true;
+                    if (UiInput.IsOverUi(position)) ignoringPress = true;
+                    else
+                    {
+                        dragOrigin = position;
+                        dragging = true;
+                    }
                 }
-                Vector2 delta = (position - dragOrigin) / (Screen.width * dragRange);
-                steer = ApplyDeadZone(delta.x);
-                throttle = ApplyDeadZone(delta.y);
-                active = true;
+                if (dragging)
+                {
+                    Vector2 delta = (position - dragOrigin) / (Screen.width * dragRange);
+                    steer = ApplyDeadZone(delta.x);
+                    throttle = ApplyDeadZone(delta.y);
+                    active = true;
+                }
             }
             else
             {
                 dragging = false;
+                ignoringPress = false;
             }
 
             var keyboard = Keyboard.current;

@@ -14,6 +14,7 @@ namespace TornadoChaser.Editor
         const string MaterialsDir = "Assets/Art/Materials";
         const string TexturesDir = "Assets/Art/Textures";
         const string MeshesDir = "Assets/Art/Meshes";
+        const string UiDir = "Assets/Art/UI";
         const string PrefabsDir = "Assets/Prefabs";
         const string ScenePath = "Assets/Scenes/Game.unity";
         const string FunnelShader = "TornadoChaser/TornadoFunnel";
@@ -41,6 +42,7 @@ namespace TornadoChaser.Editor
             Directory.CreateDirectory(MaterialsDir);
             Directory.CreateDirectory(TexturesDir);
             Directory.CreateDirectory(MeshesDir);
+            Directory.CreateDirectory(UiDir);
             Directory.CreateDirectory(PrefabsDir);
             AssetDatabase.Refresh();
 
@@ -633,9 +635,163 @@ namespace TornadoChaser.Editor
             SetReference(hud, "tracker", tracker);
             SetReference(hud, "car", car.GetComponent<CarController>());
             SetReference(hud, "tornado", tornado.GetComponent<TornadoController>());
+            BuildHud(tracker, cameraObject.GetComponent<ChaseCamera>());
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
+        }
+
+        // Portrait HUD: a vertical chase meter on the right edge and a camera view toggle
+        // in the top-right corner. ChaseMeter draws the meter's fill at runtime from
+        // ChaseTracker's zone limits.
+        static void BuildHud(ChaseTracker tracker, ChaseCamera chaseCamera)
+        {
+            var rounded = BuildUiSprite("UIRounded", RoundedPixel, border: 31);
+            var glow = BuildUiSprite("UIGlow", GlowPixel, border: 31);
+            var cameraIcon = BuildUiSprite("UICameraIcon", CameraIconPixel, border: 0, size: 128);
+
+            var canvasObject = new GameObject("Hud", typeof(Canvas), typeof(UnityEngine.UI.CanvasScaler), typeof(UnityEngine.UI.GraphicRaycaster));
+            canvasObject.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+            var scaler = canvasObject.GetComponent<UnityEngine.UI.CanvasScaler>();
+            scaler.uiScaleMode = UnityEngine.UI.CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1080f, 1920f);
+            scaler.matchWidthOrHeight = 0.5f;
+
+            new GameObject("EventSystem", typeof(UnityEngine.EventSystems.EventSystem),
+                typeof(UnityEngine.InputSystem.UI.InputSystemUIInputModule));
+
+            // Chase meter
+            var meter = UiObject("ChaseMeter", canvasObject.transform);
+            SetRect(meter, anchor: new Vector2(1f, 0.5f), pivot: new Vector2(1f, 0.5f),
+                position: new Vector2(-72f, 150f), size: new Vector2(40f, 820f));
+            var pulseRoot = UiObject("PulseRoot", meter);
+            Stretch(pulseRoot, padding: 0f);
+
+            var warningGlow = UiImage("WarningGlow", pulseRoot, new Color(1f, 1f, 1f, 0f), glow);
+            Stretch(warningGlow, padding: 44f);
+            Stretch(UiImage("Frame", pulseRoot, new Color(0f, 0f, 0f, 0.55f), rounded), padding: 8f);
+            var fill = UiObject("Fill", pulseRoot);
+            Stretch(fill, padding: 0f);
+            var fillImage = fill.gameObject.AddComponent<UnityEngine.UI.RawImage>();
+            fillImage.raycastTarget = false;
+
+            var marker = UiObject("Marker", pulseRoot);
+            SetRect(marker, anchor: new Vector2(0.5f, 0.5f), pivot: new Vector2(0.5f, 0.5f),
+                position: Vector2.zero, size: new Vector2(72f, 8f));
+            var markerGlow = UiImage("Glow", marker, Color.white, glow);
+            SetRect(markerGlow, anchor: new Vector2(0.5f, 0.5f), pivot: new Vector2(0.5f, 0.5f),
+                position: Vector2.zero, size: new Vector2(150f, 48f));
+            SetRect(UiImage("Outline", marker, new Color(0f, 0f, 0f, 0.7f), rounded), anchor: new Vector2(0.5f, 0.5f),
+                pivot: new Vector2(0.5f, 0.5f), position: Vector2.zero, size: new Vector2(78f, 14f));
+            SetRect(UiImage("Line", marker, Color.white, rounded), anchor: new Vector2(0.5f, 0.5f),
+                pivot: new Vector2(0.5f, 0.5f), position: Vector2.zero, size: new Vector2(72f, 8f));
+
+            var chaseMeter = meter.gameObject.AddComponent<ChaseMeter>();
+            SetReference(chaseMeter, "tracker", tracker);
+            SetReference(chaseMeter, "pulseRoot", pulseRoot);
+            SetReference(chaseMeter, "fill", fillImage);
+            SetReference(chaseMeter, "warningGlow", warningGlow.GetComponent<UnityEngine.UI.Image>());
+            SetReference(chaseMeter, "marker", marker);
+            SetReference(chaseMeter, "markerGlow", markerGlow.GetComponent<UnityEngine.UI.Image>());
+
+            // Camera view toggle
+            var viewButton = UiImage("ViewButton", canvasObject.transform, new Color(0f, 0f, 0f, 0.45f), rounded);
+            SetRect(viewButton, anchor: Vector2.one, pivot: Vector2.one, position: new Vector2(-40f, -60f), size: new Vector2(112f, 112f));
+            viewButton.GetComponent<UnityEngine.UI.Image>().raycastTarget = true;
+            var button = viewButton.gameObject.AddComponent<UnityEngine.UI.Button>();
+            UnityEditor.Events.UnityEventTools.AddPersistentListener(button.onClick, chaseCamera.ToggleView);
+            SetRect(UiImage("Icon", viewButton, new Color(1f, 1f, 1f, 0.9f), cameraIcon), anchor: new Vector2(0.5f, 0.5f),
+                pivot: new Vector2(0.5f, 0.5f), position: Vector2.zero, size: new Vector2(64f, 64f));
+        }
+
+        static RectTransform UiObject(string name, Transform parent)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            return (RectTransform)go.transform;
+        }
+
+        static RectTransform UiImage(string name, Transform parent, Color color, Sprite sprite)
+        {
+            var rect = UiObject(name, parent);
+            var image = rect.gameObject.AddComponent<UnityEngine.UI.Image>();
+            image.sprite = sprite;
+            image.type = sprite.border == Vector4.zero ? UnityEngine.UI.Image.Type.Simple : UnityEngine.UI.Image.Type.Sliced;
+            image.color = color;
+            image.raycastTarget = false;
+            return rect;
+        }
+
+        // Generates a white UI sprite from a per-pixel alpha function and imports it as a
+        // sprite asset. A nonzero border makes it 9-sliceable.
+        static Sprite BuildUiSprite(string name, System.Func<float, float, float> alpha, int border, int size = 64)
+        {
+            var pixels = new Color32[size * size];
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+                pixels[y * size + x] = new Color32(255, 255, 255, (byte)(Mathf.Clamp01(alpha((x + 0.5f) / size, (y + 0.5f) / size)) * 255f));
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            texture.SetPixels32(pixels);
+            string path = $"{UiDir}/{name}.png";
+            File.WriteAllBytes(path, texture.EncodeToPNG());
+            Object.DestroyImmediate(texture);
+
+            AssetDatabase.ImportAsset(path);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.spriteBorder = new Vector4(border, border, border, border);
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+            importer.SaveAndReimport();
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        }
+
+        // A circle that 9-slices into rounded rectangles and capsules.
+        static float RoundedPixel(float u, float v) =>
+            Mathf.Clamp01((0.5f - Vector2.Distance(new Vector2(u, v), new Vector2(0.5f, 0.5f))) * 64f + 0.5f);
+
+        // Soft falloff from the center, for glows.
+        static float GlowPixel(float u, float v)
+        {
+            float t = Mathf.Clamp01(1f - Vector2.Distance(new Vector2(u, v), new Vector2(0.5f, 0.5f)) * 2f);
+            return t * t;
+        }
+
+        // A simple camera: a rounded body with a viewfinder bump and a ring-shaped lens.
+        static float CameraIconPixel(float u, float v)
+        {
+            const float aa = 128f;
+            float body = RoundedBox(u, v, new Vector2(0.5f, 0.45f), new Vector2(0.4f, 0.26f), 0.08f);
+            float bump = RoundedBox(u, v, new Vector2(0.5f, 0.74f), new Vector2(0.13f, 0.06f), 0.03f);
+            float shape = Mathf.Clamp01(-Mathf.Min(body, bump) * aa + 0.5f);
+            float lensDistance = Vector2.Distance(new Vector2(u, v), new Vector2(0.5f, 0.45f));
+            float ring = Mathf.Clamp01((Mathf.Abs(lensDistance - 0.15f) - 0.045f) * -aa + 0.5f);
+            return shape * (1f - ring);
+        }
+
+        // Signed distance to a rounded box: negative inside.
+        static float RoundedBox(float u, float v, Vector2 center, Vector2 halfSize, float radius)
+        {
+            Vector2 q = new Vector2(Mathf.Abs(u - center.x), Mathf.Abs(v - center.y)) - halfSize + new Vector2(radius, radius);
+            return Vector2.Max(q, Vector2.zero).magnitude + Mathf.Min(Mathf.Max(q.x, q.y), 0f) - radius;
+        }
+
+        static void SetRect(RectTransform rect, Vector2 anchor, Vector2 pivot, Vector2 position, Vector2 size)
+        {
+            rect.anchorMin = anchor;
+            rect.anchorMax = anchor;
+            rect.pivot = pivot;
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+        }
+
+        static void Stretch(RectTransform rect, float padding)
+        {
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = new Vector2(-padding, -padding);
+            rect.offsetMax = new Vector2(padding, padding);
         }
 
         static GameObject Part(string name, Transform parent, Vector3 position, Vector3 scale, Material material,

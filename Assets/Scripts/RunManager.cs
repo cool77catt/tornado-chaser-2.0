@@ -31,8 +31,9 @@ namespace TornadoChaser
         {
             if (!waitingForRetry) return;
 
-            bool inputDown = (Pointer.current != null && Pointer.current.press.isPressed)
-                             || (Keyboard.current != null && Keyboard.current.anyKey.isPressed);
+            var pointer = Pointer.current;
+            bool tapped = pointer != null && pointer.press.isPressed && !UiInput.IsOverUi(pointer.position.ReadValue());
+            bool inputDown = tapped || (Keyboard.current != null && Keyboard.current.anyKey.isPressed);
             if (inputDown && !inputWasDown)
             {
                 Time.timeScale = 1f;
